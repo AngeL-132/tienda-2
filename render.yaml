@@ -8,24 +8,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: JWT_SECRET
-        value: your-secret-key-here
-      - key: DB_HOST
-        fromDatabase:
-          name: tienda-db
-          property: host
-      - key: DB_USER
-        fromDatabase:
-          name: tienda-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: tienda-db
-          property: password
-      - key: DB_NAME
-        fromDatabase:
-          name: tienda-db
-          property: database
 
 databases:
   - name: tienda-db
