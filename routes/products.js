@@ -24,8 +24,8 @@ function authMiddleware(req, res, next) {
 
 router.get('/', async (req, res) => {
   try {
-    const rows = await pool.query('SELECT * FROM products');
-    res.json(rows.rows);
+    const [rows] = await pool.query('SELECT * FROM products');
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -34,9 +34,9 @@ router.get('/', async (req, res) => {
 router.get('/:codigo', async (req, res) => {
   try {
     const codigo = req.params.codigo;
-    const rows = await pool.query('SELECT * FROM products WHERE codigo = $1', [codigo]);
-    if (!rows.rows.length) return res.status(404).json({ error: 'No encontrado' });
-    res.json(rows.rows[0]);
+    const [rows] = await pool.query('SELECT * FROM products WHERE codigo = ?', [codigo]);
+    if (!rows.length) return res.status(404).json({ error: 'No encontrado' });
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -47,13 +47,10 @@ router.post('/', authMiddleware, async (req, res) => {
     if (req.user.nivel !== 'admin') return res.status(403).json({ error: 'Solo admins' });
     const { nombre, codigo, precio, descripcion } = req.body;
     if (!nombre || !codigo || !precio) return res.status(400).json({ error: 'Faltan datos' });
-    const exists = await pool.query('SELECT id FROM products WHERE codigo = $1', [codigo]);
-    if (exists.rows.length) return res.status(400).json({ error: 'Código ya existe' });
-    const result = await pool.query(
-      'INSERT INTO products (nombre, codigo, precio, descripcion) VALUES ($1, $2, $3, $4) RETURNING *',
-      [nombre, codigo, precio, descripcion || '']
-    );
-    res.json(result.rows[0]);
+    const [exists] = await pool.query('SELECT id FROM products WHERE codigo = ?', [codigo]);
+    if (exists.length) return res.status(400).json({ error: 'Código ya existe' });
+    const [result] = await pool.query('INSERT INTO products (nombre, codigo, precio, descripcion) VALUES (?, ?, ?, ?)', [nombre, codigo, precio, descripcion || '']);
+    res.json({ id: result.insertId, nombre, codigo, precio, descripcion });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -64,8 +61,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     if (req.user.nivel !== 'admin') return res.status(403).json({ error: 'Solo admins' });
     const id = req.params.id;
     console.log(`DELETE /api/products/${id} requested by user:`, req.user);
-    const result = await pool.query('DELETE FROM products WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
+    const [result] = await pool.query('DELETE FROM products WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
       console.log(`Product id=${id} not found`);
       return res.status(404).json({ error: 'No encontrado' });
     }
