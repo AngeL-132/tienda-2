@@ -2,10 +2,10 @@
 
 ## Pasos para desplegar
 
-### 1. Crear Base de Datos MySQL en Render
+### 1. Crear Base de Datos PostgreSQL en Render
 
 1. Ve a [Render Dashboard](https://dashboard.render.com/)
-2. Click en "New +" → "PostgreSQL" o "MySQL"
+2. Click en "New +" → "PostgreSQL"
 3. Configura:
    - Name: `tienda-db`
    - Plan: Free
@@ -14,7 +14,7 @@
 5. Espera a que se aprovisione
 6. Una vez creado, click en la base de datos y copia los datos de conexión:
    - Host
-   - Port
+   - Port (debería ser 5432)
    - Database
    - Username
    - Password
@@ -22,7 +22,7 @@
 ### 2. Crear Web Service
 
 1. Click en "New +" → "Web Service"
-2. Conecta tu repositorio: `https://github.com/AngeL-132/tienda-2`
+2. Conecta tu repositorio
 3. Configura:
    - Name: `tienda`
    - Region: Oregon
@@ -36,6 +36,7 @@ En la sección "Environment Variables" del Web Service, agrega:
 
 ```
 DB_HOST=xxxxx.onrender.com  (copiado de la base de datos)
+DB_PORT=5432
 DB_USER=xxxxx                (copiado de la base de datos)
 DB_PASSWORD=xxxxx            (copiado de la base de datos)
 DB_NAME=xxxxx                (nombre de la base de datos, ej: tienda_db)
@@ -47,14 +48,8 @@ NODE_ENV=production
 ### 4. Ejecutar el Schema SQL
 
 1. En la página de tu base de datos en Render
-2. Click en "Shell" o "psql"
+2. Click en "Shell"
 3. Copia y pega el contenido de `schema.sql` y ejecuta
-
-O si hay un panel phpMyAdmin/adminer:
-1. Accede a phpMyAdmin desde Render
-2. Selecciona la base de datos
-3. Click en "SQL" y pega el contenido de `schema.sql`
-4. Click en "Go"
 
 ### 5. Desplegar
 
