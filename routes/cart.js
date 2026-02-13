@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../db');
+const pool = require('../mysql1.pg');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 
