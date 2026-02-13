@@ -9,6 +9,7 @@ dotenv.config();
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const cartRoutes = require('./routes/cart');
+const pool = require('./db');
 
 const app = express();
 app.use(cors());
@@ -36,6 +37,59 @@ app.use((req, res, next) => {
 	}
 	next();
 });
+
+// Migration endpoint - call once to create tables
+app.get('/api/migrate', async (req, res) => {
+	try {
+		await pool.query(`
+			CREATE TABLE IF NOT EXISTS users (
+				id SERIAL PRIMARY KEY,
+				nombre VARCHAR(255) NOT NULL,
+				email VARCHAR(255) UNIQUE NOT NULL,
+				password VARCHAR(255) NOT NULL,
+				nivel VARCHAR(50) DEFAULT 'usuario',
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			);
+
+			CREATE TABLE IF NOT EXISTS products (
+				id SERIAL PRIMARY KEY,
+				nombre VARCHAR(255) NOT NULL,
+				codigo VARCHAR(100) UNIQUE NOT NULL,
+				precio DECIMAL(10, 2) NOT NULL,
+				descripcion TEXT DEFAULT '',
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			);
+
+			CREATE TABLE IF NOT EXISTS cart_items (
+				id SERIAL PRIMARY KEY,
+				user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+				cantidad INTEGER NOT NULL DEFAULT 1,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(user_id, product_id)
+			);
+
+			CREATE TABLE IF NOT EXISTS orders (
+				id SERIAL PRIMARY KEY,
+				user_id INTEGER NOT NULL REFERENCES users(id),
+				total DECIMAL(10, 2) NOT NULL,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			);
+
+			CREATE TABLE IF NOT EXISTS order_items (
+				id SERIAL PRIMARY KEY,
+				order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+				product_id INTEGER NOT NULL REFERENCES products(id),
+				cantidad INTEGER NOT NULL,
+				precio DECIMAL(10, 2) NOT NULL
+			);
+		`);
+		res.json({ ok: true, message: 'Tablas creadas correctamente' });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
