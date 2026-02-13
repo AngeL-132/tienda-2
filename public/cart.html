@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Carrito</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <h1>🛒 Tienda</h1>
+        <nav>
+          <a href="/">Inicio</a>
+          <a href="/products.html">Productos</a>
+          <a href="/login.html" class="nav-btn">Login</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="container">
+      <main>
+        <h2 style="margin-top:0">Mi Carrito</h2>
+        <div class="card">
+          <div id="cart"></div>
+          <div id="total" style="margin-top:12px"></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:12px"><button id="empty">Vaciar carrito</button></div>
+        </div>
+      </main>
+    </div>
+    <script>
+    async function load(){
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/cart/me', { headers: { 'Authorization': 'Bearer '+token }});
+      const j = await res.json();
+      if (j.error) { document.getElementById('cart').innerText = j.error; return; }
+      document.getElementById('cart').innerHTML = j.items.map(it => `<div>${it.nombre} x ${it.cantidad} - $${it.precio}</div>`).join('');
+      document.getElementById('total').innerText = 'Total: $' + j.total;
+    }
+    document.getElementById('empty').addEventListener('click', async () => {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/cart/empty', { method: 'POST', headers: { 'Authorization': 'Bearer '+token }});
+      const j = await res.json();
+      if (j.ok) load(); else alert(j.error||'Error');
+    });
+    load();
+    </script>
+    <footer>
+      <p>© 2026 Tienda. Todos los derechos reservados.</p>
+    </footer>
+  </body>
+</html>

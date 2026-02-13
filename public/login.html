@@ -1,0 +1,223 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Login</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <h1>🛒 Tienda</h1>
+        <nav>
+          <a href="/">Inicio</a>
+          <a href="/products.html">Productos</a>
+          <a href="/register.html" class="nav-btn primary">Registrarse</a>
+        </nav>
+      </div>
+    </header>
+    <div class="auth-container">
+        <div id="loginCard" class="auth-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h2 style="margin:0">Login</h2>
+            <button class="secondary" onclick="history.back()">Volver</button>
+          </div>
+          <form id="loginForm">
+            <label>Email <input name="email" type="email" required></label>
+            <label>Password <input name="password" type="password" required></label>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+              <button type="submit">Entrar</button>
+            </div>
+          </form>
+          <div id="msg" class="msg" style="display:none"></div>
+        </div>
+    </div>
+
+    <div class="container" style="max-width:1200px;padding-top:16px;padding-bottom:24px">
+        <div id="productsSection" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h2 style="margin:0">Productos</h2>
+            <div>
+              <button id="logoutBtn" class="secondary" style="margin-right:8px">Cerrar sesión</button>
+              <button class="secondary" onclick="location.href='/'">Ir al inicio</button>
+            </div>
+          </div>
+
+          <div id="adminSectionProd" style="display:none;margin-bottom:12px"></div>
+
+            <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+              <div style="flex:2;min-width:280px">
+                <div id="list" class="grid"></div>
+              </div>
+              <aside id="cartSection" style="flex:0 0 300px">
+                <div class="card cart-card">
+                    <div class="cart-header">
+                      <h3 style="margin:0">Mi Carrito</h3>
+                      <div class="cart-actions">
+                        <button id="emptyCartBtn" class="btn btn-sm secondary">Vaciar</button>
+                        <button id="checkoutBtn" class="btn btn-sm">Comprar</button>
+                      </div>
+                    </div>
+                    <div id="cartItems">Cargando...</div>
+                    <div id="cartTotal" class="cart-total"></div>
+                  </div>
+              </aside>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+    async function renderProducts(){
+      const res = await fetch('/api/products');
+      const list = await res.json();
+      const el = document.getElementById('list');
+      const token = localStorage.getItem('token');
+      let isAdmin = false;
+      try { if (token) { const payload = JSON.parse(atob(token.split('.')[1])); isAdmin = payload.nivel === 'admin'; } } catch (e) {}
+
+      el.innerHTML = list.map(p => `
+        <div class="card">
+          <h3>${p.nombre}</h3>
+          <div class="codigo">${p.codigo}</div>
+          <p class="muted">${p.descripcion||''}</p>
+          <div class="price">$${p.precio}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <div class="codigo">ID: ${p.id}</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn add" data-id="${p.id}">Agregar</button>
+              ${isAdmin ? `<button class="btn delete" data-id="${p.id}">Eliminar</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('.add').forEach(b => b.addEventListener('click', async (e) => {
+        const id = e.target.dataset.id;
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/cart/add', { method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify({ product_id: id, cantidad: 1 }) });
+        const j = await res.json();
+        const msg = document.getElementById('msg');
+        if (j.ok) {
+          msg.className='msg ok'; msg.innerText='Producto agregado al carrito'; msg.style.display='block'; setTimeout(()=>msg.style.display='none',1500);
+          loadCart();
+        } else { msg.className='msg error'; msg.innerText = j.error || 'Error'; msg.style.display='block'; }
+      }));
+
+      if (isAdmin) {
+        document.querySelectorAll('.delete').forEach(b => b.addEventListener('click', async (e) => {
+          const id = e.target.dataset.id;
+          if (!confirm('Eliminar producto?')) return;
+          const token = localStorage.getItem('token');
+          const res = await fetch('/api/products/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+          const j = await res.json();
+          const msgEl = document.getElementById('msg');
+          if (j.ok) { msgEl.className='msg ok'; msgEl.innerText='Producto eliminado'; msgEl.style.display='block'; setTimeout(()=>msgEl.style.display='none',1500); renderProducts(); }
+          else { msgEl.className='msg error'; msgEl.innerText = j.error || 'Error'; msgEl.style.display='block'; }
+        }));
+      }
+    }
+
+    async function loadCart(){
+      const token = localStorage.getItem('token');
+      if (!token) { document.getElementById('cartItems').innerText='Inicia sesión para ver el carrito'; document.getElementById('cartTotal').innerText=''; return; }
+      const res = await fetch('/api/cart/me', { headers: { 'Authorization': 'Bearer '+token }});
+      const j = await res.json();
+      if (j.error) { document.getElementById('cartItems').innerText = j.error; document.getElementById('cartTotal').innerText=''; return; }
+      const itemsEl = document.getElementById('cartItems');
+      if (!j.items.length) itemsEl.innerHTML = '<div class="muted">Carrito vacío</div>';
+      else itemsEl.innerHTML = j.items.map(it => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border)"><div>${it.nombre} x ${it.cantidad}</div><div class="right">$${(it.precio*it.cantidad).toFixed(2)}</div></div>`).join('');
+      document.getElementById('cartTotal').innerText = 'Total: $' + (j.total || 0).toFixed(2);
+    }
+
+    document.getElementById('emptyCartBtn').addEventListener('click', async () => {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/cart/empty', { method: 'POST', headers: { 'Authorization': 'Bearer '+token }});
+      const j = await res.json();
+      const msg = document.getElementById('msg');
+      if (j.ok) { msg.className='msg ok'; msg.innerText='Carrito vaciado'; msg.style.display='block'; loadCart(); setTimeout(()=>msg.style.display='none',1500); }
+      else { msg.className='msg error'; msg.innerText = j.error || 'Error'; msg.style.display='block'; }
+    });
+
+    document.getElementById('checkoutBtn').addEventListener('click', async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Inicia sesión');
+      const confirmBuy = confirm('Confirmar compra de los productos en el carrito?');
+      if (!confirmBuy) return;
+      const res = await fetch('/api/cart/checkout', { method: 'POST', headers: { 'Authorization': 'Bearer '+token }});
+      const j = await res.json();
+      const msg = document.getElementById('msg');
+      if (j.ok) {
+        msg.className='msg ok'; msg.innerText = `Compra realizada (orden #${j.orderId}) - Total: $${j.total}`; msg.style.display='block';
+        loadCart(); setTimeout(()=>msg.style.display='none',2500);
+      } else {
+        msg.className='msg error'; msg.innerText = j.error || 'Error en la compra'; msg.style.display='block';
+      }
+    });
+
+    function showProductsSection(){
+      document.getElementById('loginCard').style.display='none';
+      document.querySelector('.auth-container').style.display='none';
+      document.getElementById('productsSection').style.display='block';
+      renderProducts();
+      loadCart();
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      document.getElementById('productsSection').style.display='none';
+      document.querySelector('.auth-container').style.display='flex';
+      document.getElementById('loginCard').style.display='block';
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const data = { email: f.email.value, password: f.password.value };
+      const res = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      const j = await res.json();
+      const msg = document.getElementById('msg');
+      if (j.token) {
+        localStorage.setItem('token', j.token);
+        msg.className='msg ok'; msg.innerText='Login ok'; msg.style.display='block';
+        // show products inline
+        try{
+          const payload = JSON.parse(atob(j.token.split('.')[1]));
+          if (payload.nivel === 'admin') {
+            document.getElementById('adminSectionProd').style.display='block';
+            document.getElementById('adminSectionProd').innerHTML = `
+              <div class="card">
+                <h3 style="margin-top:0">Crear producto (admin)</h3>
+                <form id="productFormInline">
+                  <label>Nombre <input name="nombre" required></label>
+                  <label>Código <input name="codigo" required></label>
+                  <label>Precio <input name="precio" type="number" step="0.01" required></label>
+                  <label>Descripción <input name="descripcion"></label>
+                  <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn">Crear</button></div>
+                </form>
+              </div>
+            `;
+            document.getElementById('productFormInline').addEventListener('submit', async (ev)=>{
+              ev.preventDefault();
+              const ff = ev.target; const token = localStorage.getItem('token');
+              const data = { nombre: ff.nombre.value, codigo: ff.codigo.value, precio: ff.precio.value, descripcion: ff.descripcion.value };
+              const r = await fetch('/api/products', { method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(data) });
+              const jr = await r.json();
+              const msg = document.getElementById('msg');
+              if (jr.error) { msg.className='msg error'; msg.innerText=jr.error; msg.style.display='block'; }
+              else { msg.className='msg ok'; msg.innerText='Producto creado'; msg.style.display='block'; renderProducts(); }
+            });
+          }
+        } catch(e){}
+        setTimeout(()=>{ msg.style.display='none'; showProductsSection(); },300);
+      } else {
+        msg.className='msg error'; msg.innerText = j.error || 'Error'; msg.style.display='block';
+      }
+    });
+    </script>
+    <footer>
+      <p>© 2026 Tienda. Todos los derechos reservados.</p>
+    </footer>
+  </body>
+</html>

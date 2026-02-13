@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Productos</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <h1>🛒 Tienda</h1>
+        <nav>
+          <a href="/">Inicio</a>
+          <a href="/login.html" class="nav-btn">Login</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="container">
+      <main>
+        <h2 style="margin-top:0">Productos</h2>
+        <div class="search-box">
+          <input type="text" id="searchCode" placeholder="Buscar por código..." oninput="loadProducts()">
+        </div>
+        <div id="msg" class="msg" style="display:none"></div>
+        <div id="adminSection" style="display:none">
+          <div class="card">
+            <h3 style="margin-top:0">Crear producto (solo admin)</h3>
+            <form id="productForm">
+              <label>Nombre <input name="nombre" placeholder="Nombre" required></label>
+              <label>Código <input name="codigo" placeholder="Código" required></label>
+              <label>Precio <input name="precio" placeholder="Precio" required type="number" step="0.01"></label>
+              <label>Descripción <input name="descripcion" placeholder="Descripción"></label>
+              <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn">Crear</button></div>
+            </form>
+          </div>
+        </div>
+        <div id="msg" class="msg" style="display:none"></div>
+        <div id="list" class="grid"></div>
+      </main>
+    </div>
+    <script>
+    let allProducts = [];
+    async function loadProducts() {
+      if (allProducts.length === 0) {
+        const res = await fetch('/api/products');
+        allProducts = await res.json();
+      }
+      const searchTerm = document.getElementById('searchCode').value.toLowerCase();
+      const filtered = searchTerm 
+        ? allProducts.filter(p => p.codigo.toLowerCase().includes(searchTerm))
+        : allProducts;
+      const el = document.getElementById('list');
+      el.innerHTML = filtered.map(p => `
+        <div class="card">
+          <h3>${p.nombre}</h3>
+          <div class="codigo">${p.codigo}</div>
+          <p class="muted">${p.descripcion||''}</p>
+          <div class="price">${p.precio}</div>
+        </div>
+      `).join('');
+    }
+    // Alias for backwards compatibility
+    const load = loadProducts;
+
+    document.getElementById('productForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const token = localStorage.getItem('token');
+      const data = { nombre: f.nombre.value, codigo: f.codigo.value, precio: f.precio.value, descripcion: f.descripcion.value };
+      const res = await fetch('/api/products', { method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(data) });
+      const j = await res.json();
+      const msg = document.getElementById('msg');
+      if (j.error) { msg.className='msg error'; msg.innerText = j.error; msg.style.display='block'; }
+      else { msg.className='msg ok'; msg.innerText = 'Producto creado'; msg.style.display='block'; f.reset(); load(); setTimeout(()=>msg.style.display='none',1500); }
+    });
+
+    // show admin section if token indicates admin
+    (function checkAdmin(){
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try { const payload = JSON.parse(atob(token.split('.')[1])); if (payload.nivel === 'admin') document.getElementById('adminSection').style.display = 'block'; } catch(e){}
+    })();
+
+    load();
+    </script>
+    <footer>
+      <p>© 2026 Tienda. Todos los derechos reservados.</p>
+    </footer>
+  </body>
+</html>
+
